@@ -608,3 +608,17 @@ A1-A7 parallel, then B1-B3 parallel (disjoint files), then C1.
   of standing it up.
 - `app/src/test` is the entire testable surface without an emulator.
   The coverage number must not be allowed to imply otherwise.
+
+## Known issues -- raised, not yet actioned
+
+- **Unexpected version bump on the first real release.** `.cz.yaml`'s
+  `version_provider: scm` bumped `1.0.2` -> `1.1.0` (MINOR) instead of
+  the expected `1.0.3` (PATCH). Cause: commitizen's bump-type scan walks
+  the full commit history since the last tag, and picked up an old
+  `feature/`-tagged commit still present in the ancestry from the
+  `git subtree split` that created this repo. Not fixed -- next options
+  are either re-pointing `.cz.yaml`'s history scan to this repo's own
+  first commit, or accepting scm-provider bumps are unreliable across a
+  subtree-preserved history and hand-pinning the next tag once.
+- **"A few bugs" after the Tegu signing cutover**, not yet detailed or
+  triaged. Flagged at cutover time, no repro or writeup exists yet.

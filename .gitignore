@@ -5,6 +5,7 @@ local.properties
 *.iml
 .idea/
 .gradle/
+.kotlin/
 build/
 captures/
 .cxx/

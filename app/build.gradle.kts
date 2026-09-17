@@ -1,22 +1,50 @@
 import java.util.Properties
 
+// The one place this app's version is written down. commitizen rewrites the
+// appVersionName line on bump (.cz.yaml version_files points at it), and the
+// android-X.Y.Z-debug tag is cut FROM this value, never invented alongside
+// it.
+//
+// versionCode is DERIVED, never stored: when it was maintained by hand it
+// was silently never bumped across the 1.0.0 -> 1.0.1 re-ship and both
+// builds shipped as code 1. Deriving it makes that failure impossible.
+//
+//     1.0.3  ->  10003
+//
+// One-way door: the old hand-maintained codes were small integers (the
+// installed build carries 2), so this jump is still an upgrade, but there
+// is no going back to small numbers afterwards. Monotonic, which is what
+// F-Droid requires.
+val appVersionName = "1.0.2"
+val appVersionCode = appVersionName.split(".").let { (major, minor, patch) ->
+    major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt()
+}
+
 // local.properties is gitignored (see local.properties.example) -- reading
 // it here, not hardcoding a topic or URL into a committed .kt file, is the
 // whole point: whoever holds NTFY_TOPIC can read every alert this app
 // raises, so it goes into BuildConfig the same way it goes into .env
-// elsewhere in this repo.
+// elsewhere in this stack.
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
 
+// Order matters: local.properties first (a developer's own machine), then a
+// gradle property (how CI injects a secret, via ORG_GRADLE_PROJECT_*), then
+// the environment, then the default. CI has no local.properties at all, by
+// design -- same state F-Droid's build server sees.
 fun localProp(key: String, default: String): String =
-    (localProps.getProperty(key) ?: System.getenv(key) ?: default)
+    (localProps.getProperty(key)
+        ?: (if (project.hasProperty(key)) project.property(key) as String else null)
+        ?: System.getenv(key)
+        ?: default)
 
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlinx.kover")
 }
 
 android {
@@ -31,20 +59,13 @@ android {
         applicationId = "com.thomaspeoples.wraithbus"
         minSdk = 36
         targetSdk = 36
-        // versionCode/versionName are the source of truth now, not the
-        // android-X.Y.Z-debug Gitea release tags -- those get cut FROM
-        // this value at ship time, never invented independently of it.
-        // versionCode was never actually bumped for the 1.0.0 -> 1.0.1
-        // re-ship (both carried code 1 internally, only the release-tag
-        // label changed) -- code 2 is the true count of distinct builds,
-        // not a made-up 3rd number matching the tag names.
-        versionCode = 2
-        versionName = "1.0.2"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         // Single-device scope (Tegu, a Pixel 9a phone) -- arm64-v8a is the
-        // only architecture that will ever run this APK. Shipping the
-        // other three (armeabi-v7a, x86, x86_64) MapLibre native slices
-        // quadruples the native-lib payload for zero real devices.
+        // only architecture that will ever run this APK. Shipping the other
+        // three MapLibre native slices quadruples the native-lib payload
+        // for zero real devices.
         ndk {
             abiFilters += "arm64-v8a"
         }
@@ -63,6 +84,22 @@ android {
         )
     }
 
+    // The debug keystore Android generates is per-machine, so an APK signed
+    // with CI's would not install over one signed on a developer's laptop.
+    // A stable key is what makes an automated release upgradeable at all.
+    // Absent the env vars (any local build) this config is simply unused.
+    signingConfigs {
+        create("release") {
+            val storePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            if (!storePath.isNullOrBlank()) {
+                storeFile = file(storePath)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -70,6 +107,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (!System.getenv("ANDROID_KEYSTORE_PATH").isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
@@ -126,4 +166,8 @@ dependencies {
     // translated from that page's own MapLibre style object, not a second
     // cartography invented for this app.
     implementation("org.maplibre.gl:android-sdk:11.11.0")
+
+    // Unit tests only: no emulator in CI, so the testable surface is the
+    // pure logic behind the sheet and the update check.
+    testImplementation("junit:junit:4.13.2")
 }

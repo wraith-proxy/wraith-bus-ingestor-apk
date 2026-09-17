@@ -78,12 +78,16 @@ fun AboutScreen() {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Wraith Bus is open source under the MIT license. The " +
-                "app, ingestor, database, and API are all one project, " +
-                "hosted at:",
+            text = "Wraith Bus is open source under the MIT license, split " +
+                "across two repos: this app, and the ingestor/database/API " +
+                "platform it talks to.",
             style = MaterialTheme.typography.bodyMedium
         )
         Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "https://git.thomaspeoples.com/thomaspeoples/wraith-bus-ingestor-apk",
+            style = MaterialTheme.typography.bodyMedium
+        )
         Text(
             text = "https://git.thomaspeoples.com/thomaspeoples/wraith-bus-ingestor",
             style = MaterialTheme.typography.bodyMedium

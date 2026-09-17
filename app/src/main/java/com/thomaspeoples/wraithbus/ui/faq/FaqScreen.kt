@@ -52,9 +52,10 @@ private val faqEntries: List<Pair<String, String>> = listOf(
             "general-purpose client you can repoint. It's tied to one self-hosted backend as part " +
             "of a single deployed stack.",
     "Is this open source? Where's the code?" to
-        "Yes, under the MIT license. The full stack, ingestor, database, API, and this Android app, " +
-            "is one open-source project hosted at a self-hosted Gitea instance: " +
-            "git.thomaspeoples.com/thomaspeoples/wraith-bus-ingestor.",
+        "Yes, under the MIT license, on a self-hosted Gitea instance, split across two repos: " +
+            "this app (git.thomaspeoples.com/thomaspeoples/wraith-bus-ingestor-apk) and the " +
+            "ingestor/database/API platform it talks to " +
+            "(git.thomaspeoples.com/thomaspeoples/wraith-bus-ingestor).",
     "Where do the map tiles come from?" to
         "Map tiles use OpenStreetMap data, self-hosted and served by the same backend this app " +
             "talks to. Per OSM's license, the map credits \"© OpenStreetMap contributors.\"",

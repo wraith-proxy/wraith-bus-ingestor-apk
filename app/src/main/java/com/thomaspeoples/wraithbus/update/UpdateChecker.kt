@@ -23,12 +23,12 @@ object UpdateChecker {
         .build()
 
     private const val RELEASES_URL =
-        "https://git.thomaspeoples.com/api/v1/repos/thomaspeoples/wraith-bus-ingestor/releases?limit=20"
+        "https://git.thomaspeoples.com/api/v1/repos/thomaspeoples/wraith-bus-ingestor-apk/releases?limit=20"
 
     // Matches the android-X.Y.Z-debug tags this app is actually released
-    // under -- the same repo also cuts vX.Y.Z tags for the Python package
-    // on every merge to main (see .gitea/workflows/release.yml), which
-    // this must not be confused with.
+    // under -- the platform repo (wraith-bus-ingestor) also cuts vX.Y.Z
+    // tags for its Python package on every merge to main (see its
+    // .gitea/workflows/release.yml), which this must not be confused with.
     private val TAG_RE = Regex("""^android-(\d+)\.(\d+)\.(\d+)-debug$""")
 
     data class UpdateInfo(
@@ -36,12 +36,12 @@ object UpdateChecker {
         val releaseUrl: String,
     )
 
-    private fun parseVersion(name: String): Triple<Int, Int, Int>? =
+    internal fun parseVersion(name: String): Triple<Int, Int, Int>? =
         TAG_RE.matchEntire(name)?.destructured?.let { (maj, min, patch) ->
             Triple(maj.toInt(), min.toInt(), patch.toInt())
         }
 
-    private fun isNewer(candidate: Triple<Int, Int, Int>, current: Triple<Int, Int, Int>): Boolean {
+    internal fun isNewer(candidate: Triple<Int, Int, Int>, current: Triple<Int, Int, Int>): Boolean {
         if (candidate.first != current.first) return candidate.first > current.first
         if (candidate.second != current.second) return candidate.second > current.second
         return candidate.third > current.third

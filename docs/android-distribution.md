@@ -7,13 +7,16 @@ covers the three real ways to get it onto a device instead.
 ## Obtainium (works today, no setup here)
 
 Obtainium tracks a Gitea repository's Releases page directly and offers
-to install/update whatever APK asset matches. Releases currently still
-live on `wraith-bus-ingestor` (the platform repo this app was split out
-of, milestone 1.8.0) — migrating them to this repo's own Releases page
-is unfinished follow-up work, not done yet. Until that migration:
+to install/update whatever APK asset matches. Releases live on this
+repo's own Releases page, migrated here from `wraith-bus-ingestor` (the
+platform repo this app was split out of, milestone 1.8.0) with matching
+tags, bodies and APK assets — the three existing `android-X.Y.Z-debug`
+releases were recreated here pointing at the equivalent commits in this
+repo's own history (preserved via the `git subtree split` the whole
+split used), not left behind on the platform repo.
 
 - Add the app in Obtainium with the repo URL:
-  `https://git.thomaspeoples.com/thomaspeoples/wraith-bus-ingestor`
+  `https://git.thomaspeoples.com/thomaspeoples/wraith-bus-ingestor-apk`
 - Obtainium needs to be told this is a Gitea host, not GitHub/GitLab, in
   its "source" picker.
 - Release tags follow `android-X.Y.Z-debug`, one asset each named
@@ -21,10 +24,9 @@ is unfinished follow-up work, not done yet. Until that migration:
   so Obtainium's asset-matching regex only ever needs to match that one
   filename.
 
-Once Releases move here, this becomes
-`https://git.thomaspeoples.com/thomaspeoples/wraith-bus-ingestor-apk`
-instead, and `UpdateChecker.kt`'s hardcoded repo path (below) moves with
-it in the same change.
+Anyone with an Obtainium config still pointed at `wraith-bus-ingestor`
+needs to repoint it at `-apk` manually -- Obtainium has no way to be told
+"this repo moved" from the Gitea side.
 
 ## F-Droid
 
@@ -97,10 +99,9 @@ day it is actually wanted, not preemptively.
 
 ## In-app update notice
 
-`update/UpdateChecker.kt` checks `wraith-bus-ingestor`'s Releases page
-(not yet this repo's own -- see the Obtainium section above) for a newer
-`android-X.Y.Z-debug` tag once per cold start and shows a dialog if one
-exists. This is a courtesy for the third path -- someone who sideloaded
+`update/UpdateChecker.kt` checks this repo's own Releases page for a
+newer `android-X.Y.Z-debug` tag once per cold start and shows a dialog
+if one exists. This is a courtesy for the third path -- someone who sideloaded
 the APK directly and has neither F-Droid nor Obtainium installed to
 notice a new release on their behalf. It fails silently on any network
 error and never blocks the UI; a missed check is not worth interrupting

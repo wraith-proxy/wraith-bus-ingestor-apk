@@ -372,18 +372,19 @@ this commit.
 - History-preserving move (`git subtree split`, not a plain `git mv`).
 - `docs/android-distribution.md` and this file, moved and re-pathed
   (`android/app/...` -> `app/...` now that the app is the repo root).
-
-**Not done yet -- real follow-up, not optional polish:**
-
-- **Release tags and Obtainium still point at the old repo.**
-  `UpdateChecker.kt` hits
-  `git.thomaspeoples.com/api/v1/repos/thomaspeoples/wraith-bus-ingestor/releases`,
-  and Obtainium (per `docs/android-distribution.md`) is configured
-  against that same URL. Both need to move to
-  `wraith-bus-ingestor-apk`'s own Releases page together, in one change
-  -- an app pointed at the old repo's releases would silently stop
-  seeing updates otherwise. Until this happens, releases keep shipping
-  from the platform repo even though the source now lives here.
+- **Releases migrated.** All three existing `android-X.Y.Z-debug`
+  releases (`1.0.0`, `1.0.1`, `1.0.2`) recreated here via the Gitea API,
+  same tag names, same release bodies (with a migration note added), same
+  `wraith-bus-debug.apk` assets re-uploaded from the originals (byte
+  sizes verified to match exactly). `target_commitish` on each points at
+  the equivalent commit in this repo's own subtree-split history, not
+  the old repo's commit hash -- those hashes don't exist here, the split
+  rewrote them. `UpdateChecker.kt`'s `RELEASES_URL` now points at this
+  repo (`wraith-bus-ingestor-apk`), and `docs/android-distribution.md`'s
+  Obtainium instructions do too. The old releases on `wraith-bus-ingestor`
+  were left in place, not deleted -- an existing Obtainium install
+  pointed at the old repo needs manually repointing at `-apk`; there is
+  no way to redirect it from the Gitea side.
 - **The `style.json` palette coupling got a repo worse.**
   `TrackingScreen.kt`'s map style and colours are a hand-kept
   translation of `ghost-site`'s own `MAP_PALETTE` (see the route-colour

@@ -15,7 +15,7 @@ import java.util.Properties
 // installed build carries 2), so this jump is still an upgrade, but there
 // is no going back to small numbers afterwards. Monotonic, which is what
 // F-Droid requires.
-val appVersionName = "1.0.2"
+val appVersionName = "1.1.0"
 val appVersionCode = appVersionName.split(".").let { (major, minor, patch) ->
     major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt()
 }

@@ -402,3 +402,209 @@ this commit.
   build-time constant pointing at the platform's public API regardless
   of which repo the Kotlin lives in. Noted here only so it isn't
   mistaken for something this split was supposed to fix.
+
+## 1.9.0 -- CI, docs publishing and automated releases
+
+Not started. Closes the "versioning and CI are still borrowed" gap 1.8.0
+left open: this repo currently has no `.gitea/workflows/` at all, no
+tests, no published docs, and every release has been cut by hand. Target
+is parity with `wraith-bus-ingestor`'s own pipeline -- push a branch, CI
+gates it, auto-merge lands it, main cuts a tag and ships a signed APK
+without a human touching anything.
+
+### Ground truth this plan is built on
+
+Measured, not assumed, before any of it was written:
+
+| Thing | Reality |
+|---|---|
+| `ci-actions/auto-merge` | Pure bash + `curl` + `python3` JSON parse, runs on `ubuntu-latest`. Language-agnostic -- **works here unmodified**. |
+| `ci-actions/version-bump` | Runs `cz bump`, reads the *target repo's* `.cz.yaml`. The action itself needs no change; this repo needs its own `.cz.yaml`. |
+| `ci-images` | One Dockerfile, `FROM gitea/act_runner:latest` = **Alpine/musl**, `apk add`, Python-centric. Built and pushed by hand. |
+| Runner labels | `gitea/docker-compose.yml`: `GITEA_RUNNER_LABELS=ubuntu-latest:docker://node:18-bullseye,ghost-runner:docker://...`. A new label is a one-line edit plus a runner restart. |
+| `ubuntu-latest` here | Is **`node:18-bullseye`**, not a real GitHub runner. No JDK, no Android SDK. |
+| Host | 6 cores, 15GB RAM, ~3GB available, 63GB disk free, nightly dbt timer at 03:00. |
+| This repo | AGP 8.13.2, Kotlin 2.2.0, Gradle 8.13, compileSdk 36, JDK 17, `app/src/main` only -- **zero tests**. |
+
+### Decisions, made up front
+
+**A new runner image, and it has to be Debian, not Alpine.** Not a
+preference: Google ships `aapt2` and `d8` as glibc-linked binaries, and
+they do not run on musl without `gcompat` shims that are known-flaky.
+Extending the existing Alpine `ghost-runner` is a dead end regardless of
+how the Gradle-vs-PyTest separation is felt about -- though that
+separation is wanted independently, and this delivers it.
+
+- `ci-images/Dockerfile.android`, added **alongside** the existing root
+  `Dockerfile` -- not a subdirectory restructure, which would break the
+  documented build command and that file's own `COPY pyproject.toml .`
+  build context for no gain.
+- Tag `git.thomaspeoples.com/thomaspeoples/ci-actions/ghost-runner-android:latest`,
+  matching the existing image's registry path. Label
+  `ghost-runner-android`.
+- `eclipse-temurin:17-jdk-jammy` + cmdline-tools + platform 36 +
+  build-tools **35.0.0** + platform-tools + git/curl, plus `python3-pip`
+  with `mkdocs` and `mkdocs-material` so the docs job doesn't need a
+  second image or cross-job artifact passing (Gitea act_runner's
+  artifact support is not worth depending on). Built and measured at
+  1.75GB, against a 1.8GB estimate.
+
+  Two corrections this milestone made to its own plan, both found by
+  running a real build rather than reading documentation: build-tools is
+  **35.0.0, not 36.1.0** (AGP 8.13.2 resolves 35.0.0 even at
+  `compileSdk 36`, and pinning the wrong one silently re-downloads the
+  SDK on every CI run rather than failing), and `genbadge` is **not**
+  usable here -- it only parses Cobertura XML while Kover emits JaCoCo,
+  so `bin/coverage_badge.py` renders the badge from stdlib instead.
+- `ANDROID_HOME`/`ANDROID_SDK_ROOT` set as ENV in the image. AGP falls
+  back to these when `local.properties` is absent -- which is exactly
+  the failure hit locally the first time this repo was built standalone
+  after the 1.8.0 split, and exactly the state F-Droid's build server
+  would see too (see 1.6.0).
+
+**Version authority: `.cz.yaml` with `version_provider: scm`.** No
+`pyproject.toml` in a Kotlin repo just to hold a number. `scm` reads the
+current version straight from the latest git tag, so there is no file to
+keep in sync. `tag_format: android-$version-debug` is **non-negotiable**:
+`UpdateChecker.kt` matches `^android-(\d+)\.(\d+)\.(\d+)-debug$` and
+Obtainium's asset matcher depends on the same shape (see
+[docs/android-distribution.md](android-distribution.md)).
+
+**`versionCode` derived from `versionName`, not stored separately.**
+This kills the bug class 1.5.0 already hit, where `versionCode` was
+silently never bumped across the `1.0.0` -> `1.0.1` re-ship:
+
+```kotlin
+val appVersionName = "1.0.3"   // the only line cz rewrites
+versionCode = appVersionName.split(".")
+    .let { (maj, min, patch) -> maj.toInt() * 10000 + min.toInt() * 100 + patch.toInt() }
+```
+
+A one-way door, stated plainly: `1.0.3` becomes `10003`, and there is no
+going back to small numbers afterwards. Safe from here -- the installed
+build carries `versionCode 2`, so the jump is still an upgrade -- and
+monotonic, which is what F-Droid actually requires.
+
+**Signing, and the trap it defuses.** The debug keystore is generated
+**per machine**. A CI-built debug APK would carry a different signature
+than the locally-built one already installed on Tegu, and Android would
+refuse the upgrade outright with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`.
+So: one real release keystore, base64 in a Gitea secret, a proper
+`release` signingConfig. Drops the "debug build, not signed" caveat
+1.5.0 recorded, and 1.6.0 needs it anyway. **Cost: one uninstall and
+reinstall on Tegu at the cutover** -- unavoidable, and doing it later
+only means doing it later.
+
+**Tests: a small real suite with an honest floor.** No emulator in CI, so
+only pure logic is reachable. Seed exactly what actually broke in 1.5.0:
+version comparison, ISO-to-local-time formatting, and `BusApi`'s JSON
+parsing. Needs three `private` -> `internal` changes to make those
+functions visible to the test source set, and
+`testImplementation("org.json:json:...")`, because `org.json` is stubbed
+on JVM unit tests and otherwise silently returns defaults rather than
+parsing anything. Kover produces the coverage badge; the floor starts at
+**15%**, documented as deliberately low because Compose UI needs
+instrumentation to reach -- not dressed up as a number it isn't.
+
+**Badges: only the true ones.** No F-Droid badge (not submitted, see
+1.6.0), no Play Store, no App Store. The Obtainium badge gets vendored
+into `docs/assets/` rather than hotlinked from GitHub raw -- this is a
+self-hosted stack. The release-version badge is generated locally as
+`release.svg` alongside `coverage.svg`, not fetched from shields.io's
+dynamic-JSON endpoint pointed at the Gitea API.
+
+### Pipeline shape
+
+Branch push and main push, mirroring the platform repo's own split:
+
+- **`test.yml`** -- `on: push: branches-ignore: [main]`, `runs-on:
+  ghost-runner-android`: `assembleDebug` + `lint` + `testDebugUnitTest` +
+  Kover. Then the `auto-merge` job on `ubuntu-latest`, calling the shared
+  action unmodified.
+- **`release.yml`** -- `on: push: branches: [main]`, one workflow, two
+  jobs:
+  - `bump`, `runs-on: ghost-runner` (the existing Alpine image already
+    has commitizen baked in; bumping is pure git + cz and needs no
+    Android SDK), guarded by
+    `if: "!contains(github.event.head_commit.message, '[skip ci]')"`.
+  - `release-apk`, `needs: bump`, `runs-on: ghost-runner-android`:
+    builds the signed APK, creates the Gitea Release, uploads
+    `wraith-bus-debug.apk`.
+
+  **No tag-triggered workflow.** The open question was whether the
+  version-bump action's `--tags` push re-triggers Actions on this Gitea
+  version; it's moot, because the `[skip ci]` guard is the stack's
+  existing answer to exactly this. The bump commit message already ends
+  `[skip ci]` (set by `.cz.yaml`'s `bump_message`), so the re-triggered
+  run on main hits the guard and stops. Same pattern every other repo in
+  the stack uses -- one mechanism, not a second one invented here.
+
+  One real detail: `release-apk` must check out `ref: main` with
+  `fetch-depth: 0`, **not** the triggering SHA. `actions/checkout@v4`
+  defaults to the commit the run started at, which is the commit
+  *before* `bump` pushed -- checking that out would build and ship the
+  old `versionName`. Reading the version back with
+  `git describe --tags --abbrev=0 --match 'android-*'` keeps the tag as
+  the single source of truth.
+- **`pages.yml`** -- `runs-on: ghost-runner-android`: Kover ->
+  `bin/coverage_badge.py` -> `mkdocs build` -> push to `ghost-site` at
+  `www/thomaspeoples/gitea-repos/wraith-bus-ingestor-apk`. Note the
+  path: the platform repo's own `pages.yml` records that ghost-site's
+  2026-09 docroot split moved this, and that **every other `wraith-*`
+  repo still writes to the old location nginx no longer serves**. This
+  repo starts on the correct one.
+
+### Execution model -- ultracode, 11 scoped agents
+
+Every prompt carries the exact path and the full file body or an exact
+old/new string. No agent reads the repo to work out what to do, chooses
+between options, or makes a design decision -- all of those are above.
+Each returns `{file, changed, summary}` and nothing else, so no agent's
+working context comes back to the orchestrator. Sized for Haiku /
+Sonnet-low.
+
+| Phase | # | Sole scope | Task |
+|---|---|---|---|
+| Scaffold | A1 | `mkdocs.yml` | New, mirroring the platform's, `site_url` at this repo's path |
+| Scaffold | A2 | `docs/index.md` | New |
+| Scaffold | A3 | `docs/ci.md` | New -- image, labels, secrets, release flow |
+| Scaffold | A4 | `.cz.yaml` | `version_provider: scm`, `tag_format: android-$version-debug`, platform's `bump_map`/`commit_parser` |
+| Scaffold | A5 | `.gitea/workflows/test.yml` | Branch CI + auto-merge |
+| Scaffold | A6 | `.gitea/workflows/release.yml` | The two-job `[skip ci]`-guarded release above |
+| Scaffold | A7 | `.gitea/workflows/pages.yml` | Docs + badges to ghost-site |
+| Kotlin | B1 | `app/build.gradle.kts` | versionCode derivation, release signingConfig, Kover, `org.json` test dep |
+| Kotlin | B2 | 3 exact visibility edits | `private` -> `internal` in `UpdateChecker.kt`, `TrackingScreen.kt` |
+| Kotlin | B3 | `app/src/test/**` | Three new test files, bodies supplied verbatim |
+| Image | C1 | `ci-images/Dockerfile.android` + README | Separate repo, runs last, no overlap |
+
+A1-A7 parallel, then B1-B3 parallel (disjoint files), then C1.
+
+**Not agent work, and not delegated:**
+
+- Building and pushing the image (~15 min, wants disk and RAM headroom).
+- Registering the `ghost-runner-android` label and restarting the
+  runner. **act_runner caches its registration in `.runner`, so labels
+  may need a re-register rather than picking up on restart** -- confirm
+  the label actually appears in Gitea's runner list before trusting any
+  workflow that targets it.
+- Generating the keystore and adding the Gitea secrets
+  (`ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`,
+  `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`, plus `NTFY_TOPIC` so CI
+  builds ship with push working rather than degrading to none).
+- The Tegu uninstall/reinstall at the signing cutover.
+- Verification: `./gradlew testDebugUnitTest lint assembleDebug` run for
+  real before anything is pushed.
+
+### Also decided
+
+- **Gradle memory caps are mandatory here, not tuning.** ~3GB available
+  on a box with OOM history (see the platform repo's own 1.1.1):
+  `org.gradle.daemon=false`, `-Xmx1536m`, `org.gradle.workers.max=2` in
+  CI, and CI must not race the 03:00 nightly dbt build.
+- **Persist `~/.gradle`** as a named volume on the runner, or every
+  build re-downloads several hundred MB of dependencies.
+- **detekt/ktlint deferred.** Real value, but a second gate with its own
+  baseline-file ceremony. Add once this pipeline is green, not as part
+  of standing it up.
+- `app/src/test` is the entire testable surface without an emulator.
+  The coverage number must not be allowed to imply otherwise.

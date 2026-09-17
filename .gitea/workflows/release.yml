@@ -1,0 +1,113 @@
+name: 'Sovereign Release'
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  # Bumping is pure git + commitizen and needs no Android SDK, so it runs on
+  # the existing Python image, which already has cz baked in.
+  bump:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ghost-runner
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITEA_TOKEN }}
+
+      - name: Run Ghost Bump
+        uses: https://git.thomaspeoples.com/thomaspeoples/ci-actions/version-bump@main
+        with:
+          gitea_token: ${{ secrets.giteatoken }}
+          api_url: "${{ secrets.giteaurl }}/api/v1"
+
+  release-apk:
+    needs: bump
+    runs-on: ghost-runner-android
+    steps:
+      # ref: main, NOT the triggering SHA. actions/checkout defaults to the
+      # commit the run started at, which is the commit BEFORE bump pushed --
+      # checking that out would build and ship the previous version number.
+      - name: Check out the bumped main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITEA_TOKEN }}
+
+      - name: Resolve the version just tagged
+        id: version
+        run: |
+          TAG=$(git describe --tags --abbrev=0 --match 'android-*-debug')
+          VERSION=${TAG#android-}
+          VERSION=${VERSION%-debug}
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Releasing $TAG (version $VERSION)"
+
+      # The debug keystore is generated per machine, so a CI build signed
+      # with it would not be installable over a locally built one. A stable
+      # key is what makes an automated release upgradeable at all.
+      - name: Decode the signing keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Build the signed APK
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ORG_GRADLE_PROJECT_ntfyTopic: ${{ secrets.NTFY_TOPIC }}
+        run: ./gradlew assembleRelease
+
+      - name: Publish the release and attach the APK
+        env:
+          GITEA_TOKEN: ${{ secrets.giteatoken }}
+          API_URL: "${{ secrets.giteaurl }}/api/v1"
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -e
+          # Name it exactly, never glob. If signing silently no-ops (a
+          # missing or malformed keystore secret), Gradle still succeeds and
+          # emits app-release-unsigned.apk instead -- a glob would happily
+          # ship that, and an unsigned APK cannot be installed at all.
+          APK=app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$APK" ]; then
+            echo "FATAL: $APK missing. Built artifacts were:"
+            ls -la app/build/outputs/apk/release/ || true
+            echo "An app-release-unsigned.apk here means the signing secrets did not apply."
+            exit 1
+          fi
+
+          # Prove it is actually signed rather than trusting the filename.
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
+          echo "Attaching $APK (signature verified)"
+
+          RESPONSE=$(curl -s -X POST "$API_URL/repos/$GITHUB_REPOSITORY/releases" \
+            -H "authorization: token $GITEA_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"tag_name\": \"$TAG\",
+              \"name\": \"Wraith Bus Android $VERSION\",
+              \"body\": \"Automated release built from main. Signed with the project release key.\",
+              \"draft\": false,
+              \"prerelease\": false
+            }")
+
+          RELEASE_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))")
+          if [ -z "$RELEASE_ID" ]; then
+            echo "FATAL: could not create release. Response:"
+            echo "$RESPONSE" | sed -E 's#https?://[0-9]{1,3}(\.[0-9]{1,3}){3}(:[0-9]+)?#[redacted]#g'
+            exit 1
+          fi
+
+          curl -s -X POST \
+            "$API_URL/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=wraith-bus-debug.apk" \
+            -H "authorization: token $GITEA_TOKEN" \
+            -F "attachment=@$APK" > /dev/null
+
+          echo "Released $TAG"

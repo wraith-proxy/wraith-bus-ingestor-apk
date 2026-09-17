@@ -335,7 +335,7 @@ private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
 /** Server times are all ISO-8601 UTC ("2026-09-16T18:57:39Z") -- riders
  * want a clock time in their own zone, not a data engineer's timestamp. */
-private fun isoToLocalTime(iso: String?): String {
+internal fun isoToLocalTime(iso: String?): String {
     if (iso.isNullOrBlank()) return "-"
     return try {
         Instant.parse(iso).atZone(ZoneId.systemDefault()).format(timeFormatter)
@@ -369,7 +369,7 @@ private fun BusDetailSheetContent(detail: BusDetail) {
     }
 }
 
-private fun formatDelay(bus: Bus): String {
+internal fun formatDelay(bus: Bus): String {
     val delaySeconds = bus.delayS
     return when (bus.status) {
         "on_time" -> "on time"
@@ -379,7 +379,7 @@ private fun formatDelay(bus: Bus): String {
     }
 }
 
-private fun formatMinutesSeconds(seconds: Double): String {
+internal fun formatMinutesSeconds(seconds: Double): String {
     val total = kotlin.math.abs(seconds).toLong()
     return "${total / 60}m ${total % 60}s"
 }

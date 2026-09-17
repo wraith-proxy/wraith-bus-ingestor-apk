@@ -36,12 +36,12 @@ object UpdateChecker {
         val releaseUrl: String,
     )
 
-    private fun parseVersion(name: String): Triple<Int, Int, Int>? =
+    internal fun parseVersion(name: String): Triple<Int, Int, Int>? =
         TAG_RE.matchEntire(name)?.destructured?.let { (maj, min, patch) ->
             Triple(maj.toInt(), min.toInt(), patch.toInt())
         }
 
-    private fun isNewer(candidate: Triple<Int, Int, Int>, current: Triple<Int, Int, Int>): Boolean {
+    internal fun isNewer(candidate: Triple<Int, Int, Int>, current: Triple<Int, Int, Int>): Boolean {
         if (candidate.first != current.first) return candidate.first > current.first
         if (candidate.second != current.second) return candidate.second > current.second
         return candidate.third > current.third

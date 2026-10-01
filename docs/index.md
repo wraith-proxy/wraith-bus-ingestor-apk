@@ -17,7 +17,8 @@ cadence separate from the ingest/API platform it talks to.
   platform's `/metrics/summary` and `/metrics/punctuality` endpoints
   rather than querying QuestDB or Grafana from the phone.
 - **Push** -- an optional foreground service holding a WebSocket to the
-  same self-hosted ntfy topic the platform's Grafana alerts publish to.
+  same self-hosted ntfy topic the platform's Grafana alerts publish to. The
+  topic ID is entered in About > Alerts, never built into the APK.
 
 ## Scope, stated plainly
 
@@ -31,8 +32,11 @@ ways to actually install it.
 ## Where the data comes from
 
 Live vehicle positions are the UK Bus Open Data Service's SIRI-VM feed,
-polled every 60 seconds by the platform. There is no static
-timetable/GTFS/TransXChange ingest: stop sequences and route geometry are
-inferred from where buses have actually been seen, matched against the
-NaPTAN register and snapped to roads with a self-hosted OSRM. Routes are
-"what buses actually did", not "what the timetable says they should do".
+polled every 60 seconds by the platform.
+
+The platform now reads the published BODS GTFS timetable for route shape and
+stop sequences, next stops and line search (platform ADR-0008). ETAs are still a
+regression fitted to observed positions, with a timetable-pinned rung tried
+first where a bus can be matched to a scheduled trip. London is the gap: TfL
+does not publish to BODS, so London buses have a position, an ETA and a place
+in the live list, but no route overlay, next stop or line-search entry.

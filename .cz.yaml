@@ -10,8 +10,8 @@ commitizen:
   # Not cosmetic. UpdateChecker.kt matches this exact tag shape, and so does
   # Obtainium's asset matcher -- changing it silently breaks every installed
   # copy's update check.
-  tag_format: android-$version-debug
-  bump_message: ":ghost: chore: release android-$current_version-debug -> android-$new_version-debug [skip ci]"
+  tag_format: android-$version
+  bump_message: ":ghost: chore: release android-$current_version -> android-$new_version [skip ci]"
 
   # versionName is the only version string in the tree; versionCode is
   # derived from it at build time, so there is exactly one line to rewrite.

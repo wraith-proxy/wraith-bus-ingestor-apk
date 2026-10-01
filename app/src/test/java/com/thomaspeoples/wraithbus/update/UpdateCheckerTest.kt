@@ -16,8 +16,8 @@ class UpdateCheckerTest {
 
     @Test
     fun parsesAWellFormedReleaseTag() {
-        assertEquals(Triple(1, 0, 2), UpdateChecker.parseVersion("android-1.0.2-debug"))
-        assertEquals(Triple(12, 7, 30), UpdateChecker.parseVersion("android-12.7.30-debug"))
+        assertEquals(Triple(1, 0, 2), UpdateChecker.parseVersion("android-1.0.2"))
+        assertEquals(Triple(12, 7, 30), UpdateChecker.parseVersion("android-12.7.30"))
     }
 
     @Test
@@ -26,8 +26,8 @@ class UpdateCheckerTest {
         // mistaking one of those for an app release would offer a bogus
         // update to a version of something else entirely.
         assertNull(UpdateChecker.parseVersion("v1.0.2"))
-        assertNull(UpdateChecker.parseVersion("android-1.0.2"))
-        assertNull(UpdateChecker.parseVersion("android-1.0-debug"))
+        assertNull(UpdateChecker.parseVersion("android-1.0.2-debug"))
+        assertNull(UpdateChecker.parseVersion("android-1.0"))
         assertNull(UpdateChecker.parseVersion(""))
     }
 

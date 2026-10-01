@@ -25,11 +25,11 @@ object UpdateChecker {
     private const val RELEASES_URL =
         "https://git.thomaspeoples.com/api/v1/repos/thomaspeoples/wraith-bus-ingestor-apk/releases?limit=20"
 
-    // Matches the android-X.Y.Z-debug tags this app is actually released
+    // Matches the android-X.Y.Z tags this app is actually released
     // under -- the platform repo (wraith-bus-ingestor) also cuts vX.Y.Z
     // tags for its Python package on every merge to main (see its
     // .gitea/workflows/release.yml), which this must not be confused with.
-    private val TAG_RE = Regex("""^android-(\d+)\.(\d+)\.(\d+)-debug$""")
+    private val TAG_RE = Regex("""^android-(\d+)\.(\d+)\.(\d+)$""")
 
     data class UpdateInfo(
         val latestVersionName: String,
@@ -57,7 +57,7 @@ object UpdateChecker {
                 resp.body?.string() ?: return@withContext null
             }
             val releases = JSONArray(body)
-            val current = parseVersion("android-${BuildConfig.VERSION_NAME}-debug") ?: return@withContext null
+            val current = parseVersion("android-${BuildConfig.VERSION_NAME}") ?: return@withContext null
 
             var best: Pair<Triple<Int, Int, Int>, UpdateInfo>? = null
             for (i in 0 until releases.length()) {

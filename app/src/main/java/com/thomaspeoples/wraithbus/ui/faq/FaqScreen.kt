@@ -67,7 +67,7 @@ private val faqEntries: List<Pair<String, String>> = listOf(
         "No. Wraith Bus has no user accounts, no login, and no analytics or tracking of the person " +
             "using it. You open it and it shows buses.",
     "How does the update check work?" to
-        "On launch, the app checks the Gitea Releases page for a newer android-X.Y.Z-debug tag and " +
+        "On launch, the app checks the Gitea Releases page for a newer android-X.Y.Z tag and " +
             "shows a dialog if one is found. This is a courtesy for direct sideloaders; Obtainium " +
             "and F-Droid already check for updates on their own.",
 )

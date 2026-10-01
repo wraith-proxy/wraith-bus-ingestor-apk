@@ -622,3 +622,23 @@ A1-A7 parallel, then B1-B3 parallel (disjoint files), then C1.
   subtree-preserved history and hand-pinning the next tag once.
 - **"A few bugs" after the Tegu signing cutover**, not yet detailed or
   triaged. Flagged at cutover time, no repro or writeup exists yet.
+
+## 2026-10-01 -- distribution and alert-topic changes
+
+- **Old releases deleted, "debug" dropped from release naming.** The four
+  `android-1.0.0` to `android-1.1.0-debug` releases and tags were deleted from
+  Gitea: those APKs had the ntfy topic compiled in (`BuildConfig`), and the repo
+  and its Releases are publicly readable. Tags are now `android-X.Y.Z` and the
+  asset is `wraith-bus.apk` (`.cz.yaml`, `release.yml`, `UpdateChecker.kt`). The
+  history above that says `-debug` is what was true at the time. CI builds the
+  releases again, from a clean slate, starting from 1.0.0.
+- **The ntfy topic is a setting, not a build input.** About > Alerts stores it
+  in the app's private preferences (`ntfy/TopicStore.kt`); saving restarts the
+  listener, blank turns alerts off. `NTFY_TOPIC` and `NTFY_WS_URL` are gone
+  from `BuildConfig`, `local.properties`, `release.yml` and the Gitea secrets.
+  The old topic was rotated on the platform side.
+- **Data source note updated.** The platform now reads the published BODS GTFS
+  timetable for route shape, stop sequences, next stops and line search
+  (platform ADR-0008), so the "no static timetable ingest" paragraph under
+  Known issues is out of date: routes are no longer inferred from observed
+  positions, except London, where TfL publishes no BODS timetable.

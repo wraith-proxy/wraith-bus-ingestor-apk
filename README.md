@@ -21,17 +21,22 @@ separate from the ingest and API platform it talks to.
 
 ## 📲 Installing
 
-There is no Play Store build, deliberately. Three ways in:
+There is no Play Store build, deliberately. CI builds and signs every release
+on merge to `main`; the APK is `wraith-bus.apk` on the
+[Releases](https://git.thomaspeoples.com/thomaspeoples/wraith-bus-ingestor-apk/releases)
+page, tagged `android-X.Y.Z`.
 
-| Route | Works today | Notes |
-|---|---|---|
-| **Obtainium** | yes | Point it at this repo's URL, tell it the host is Gitea. Tracks releases automatically. |
-| **Direct sideload** | yes | Grab `wraith-bus-debug.apk` from [Releases](https://git.thomaspeoples.com/thomaspeoples/wraith-bus-ingestor-apk/releases). The app checks for newer releases itself on launch. |
-| **F-Droid** | self-hosted repo only | Not in the public catalog. [docs/ROADMAP.md](docs/ROADMAP.md) 1.6.0 explains honestly why that is a decision rather than an oversight. |
+- **Obtainium:** point it at this repo's URL and tell it the host is Gitea. It
+  tracks releases automatically.
+- **Direct sideload:** download the APK from Releases and open it. The app also
+  checks for a newer release itself on launch.
+- **F-Droid:** self-hosted repo only, not the public catalog. See
+  [docs/ROADMAP.md](docs/ROADMAP.md) 1.6.0.
 
-Release tags are `android-X.Y.Z-debug`, one asset each named
-`wraith-bus-debug.apk` -- a predictable shape by design, so Obtainium's
-matcher only ever needs to match one filename.
+Then open **About > Alerts** and enter the ntfy topic ID to turn on push
+alerts, or leave it blank for none. The topic is a credential, so it is typed in
+on the device and never built into the APK. A public APK that carried it would
+give it to everyone who downloaded the file.
 
 ## 🗺️ What it does
 
@@ -74,10 +79,12 @@ location it does not use is exactly what a reviewer should flag.
 at build time. That is honest about what this is: a client for one
 self-hosted deployment, not a general-purpose bus tracker.
 
-**Routes are what buses did, not what the timetable said.** There is no
-static timetable ingest anywhere in the stack. Stop sequences come from
-observed positions matched to the NaPTAN register, which is also why a
-thin-data line can come back truncated.
+**Routes come from the published timetable.** The platform now reads the
+published BODS GTFS timetable for route shape and stop sequences, next stops and line search (platform ADR-0008). ETAs are still a
+regression fitted to observed positions, with a timetable-pinned rung tried
+first where a bus can be matched to a scheduled trip. London is the gap: TfL
+does not publish to BODS, so London buses have a position, an ETA and a place
+in the live list, but no route overlay, next stop or line-search entry.
 
 ## 🛠️ Building
 
@@ -85,17 +92,15 @@ thin-data line can come back truncated.
 git clone https://git.thomaspeoples.com/thomaspeoples/wraith-bus-ingestor-apk.git
 cd wraith-bus-ingestor-apk
 
-cp local.properties.example local.properties   # set sdk.dir, apiBaseUrl, ntfyTopic
+cp local.properties.example local.properties   # set sdk.dir, apiBaseUrl
 ./gradlew assembleDebug
 ```
 
-`local.properties` is gitignored: it carries `ntfyTopic`, which is a
-credential -- anyone holding it can read every alert this app raises. With
-the file absent the build still succeeds and degrades to "no push
-notifications", which is exactly the state CI and an F-Droid build server
-see.
+`local.properties` is gitignored. The ntfy topic is a credential (anyone holding
+it can read every alert), so it is never built into the APK: type it into
+About > Alerts on the device. Blank means no push notifications.
 
-CI runs on a purpose-built image; see [docs/ci.md](docs/ci.md).
+CI builds the releases on a purpose-built image; see [docs/ci.md](docs/ci.md).
 
 ## License
 

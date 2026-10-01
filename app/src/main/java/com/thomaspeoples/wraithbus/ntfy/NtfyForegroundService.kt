@@ -7,7 +7,6 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.thomaspeoples.wraithbus.BuildConfig
 import com.thomaspeoples.wraithbus.R
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -95,14 +94,14 @@ class NtfyForegroundService : Service() {
             .build()
 
     private fun connect() {
-        // Defense in depth: MainActivity already skips starting this
-        // service when no topic is baked in, but a blank topic here would
-        // otherwise mean an endless reconnect loop against a malformed
-        // URL for zero benefit.
-        if (BuildConfig.NTFY_TOPIC.isBlank()) return
+        // Defense in depth: nothing starts this service when no topic is
+        // set, but a blank topic here would otherwise mean an endless
+        // reconnect loop against a malformed URL for zero benefit.
+        val topic = TopicStore.get(this)
+        if (topic.isBlank()) return
         if (webSocket != null) return
         reconnectJob?.cancel()
-        val request = Request.Builder().url(BuildConfig.NTFY_WS_URL).build()
+        val request = Request.Builder().url(TopicStore.wsUrl(topic)).build()
         webSocket = client.newWebSocket(request, listener)
     }
 

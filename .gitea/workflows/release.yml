@@ -41,9 +41,8 @@ jobs:
       - name: Resolve the version just tagged
         id: version
         run: |
-          TAG=$(git describe --tags --abbrev=0 --match 'android-*-debug')
+          TAG=$(git describe --tags --abbrev=0 --match 'android-*')
           VERSION=${TAG#android-}
-          VERSION=${VERSION%-debug}
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Releasing $TAG (version $VERSION)"
@@ -60,7 +59,6 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ORG_GRADLE_PROJECT_ntfyTopic: ${{ secrets.NTFY_TOPIC }}
         run: ./gradlew assembleRelease
 
       - name: Publish the release and attach the APK
@@ -106,7 +104,7 @@ jobs:
           fi
 
           curl -s -X POST \
-            "$API_URL/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=wraith-bus-debug.apk" \
+            "$API_URL/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=wraith-bus.apk" \
             -H "authorization: token $GITEA_TOKEN" \
             -F "attachment=@$APK" > /dev/null
 

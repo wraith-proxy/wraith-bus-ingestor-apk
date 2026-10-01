@@ -17,7 +17,7 @@ jobs:
           fetch-depth: 0
 
       # local.properties is absent here on purpose (gitignored -- it carries
-      # ntfyTopic, a credential). AGP falls back to ANDROID_HOME, which the
+      # machine-specific paths). AGP falls back to ANDROID_HOME, which the
       # image sets. This is the same state F-Droid's build server sees.
       - name: Unit tests and coverage
         run: ./gradlew testDebugUnitTest koverXmlReport

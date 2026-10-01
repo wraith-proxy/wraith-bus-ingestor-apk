@@ -38,7 +38,7 @@ server sees, and AGP falls back to `ANDROID_HOME` rather than failing.
 | File | Trigger | Runner | Does |
 |---|---|---|---|
 | `test.yml` | push to any branch but `main` | `ghost-runner-android` | unit tests + coverage, Android Lint, `assembleDebug`, then auto-merge |
-| `release.yml` | push to `main` | `ghost-runner` then `ghost-runner-android` | version bump, tag, build signed APK, publish release |
+| `release.yml` | push to `main` | `ghost-runner` then `ghost-runner-android` | version bump, tag, build signed APK, publish release. |
 | `pages.yml` | push to `main` | `ghost-runner-android` | coverage badge, mkdocs build, publish to ghost-site |
 
 ### Why there is no tag-triggered workflow
@@ -59,8 +59,9 @@ would ship the previous version number.
 
 `.cz.yaml` uses `version_provider: scm`, so the current version is read
 from the latest git tag and there is no version file to keep in sync. Tag
-format is `android-X.Y.Z-debug`, which is not cosmetic: `UpdateChecker.kt`
-matches exactly that shape, and so does Obtainium's asset matcher.
+format is `android-X.Y.Z`, which is not cosmetic: `UpdateChecker.kt`
+matches exactly that shape, and so would Obtainium's asset matcher if releases
+were published again.
 
 `versionCode` is **derived** from `versionName` in
 `app/build.gradle.kts`, never stored separately:
@@ -82,7 +83,9 @@ monotonic, which is what F-Droid requires.
 | `ANDROID_KEYSTORE_PASSWORD` | `release.yml` | keystore password |
 | `ANDROID_KEY_ALIAS` | `release.yml` | signing key alias |
 | `ANDROID_KEY_PASSWORD` | `release.yml` | signing key password |
-| `NTFY_TOPIC` | `release.yml` | push topic baked into the build |
+
+The ntfy topic is not a CI secret: it is entered in the app on the device, and
+the `NTFY_TOPIC` secret was deleted when it stopped being baked into builds.
 
 The keystore is a real one, not the auto-generated debug key. The debug key
 is generated **per machine**, so a CI-built APK signed with it would carry a

@@ -2,7 +2,7 @@ import java.util.Properties
 
 // The one place this app's version is written down. commitizen rewrites the
 // appVersionName line on bump (.cz.yaml version_files points at it), and the
-// android-X.Y.Z-debug tag is cut FROM this value, never invented alongside
+// android-X.Y.Z tag is cut FROM this value, never invented alongside
 // it.
 //
 // versionCode is DERIVED, never stored: when it was maintained by hand it
@@ -15,16 +15,19 @@ import java.util.Properties
 // installed build carries 2), so this jump is still an upgrade, but there
 // is no going back to small numbers afterwards. Monotonic, which is what
 // F-Droid requires.
-val appVersionName = "1.1.0"
+// 0.0.0 is a placeholder: there are no tags yet, so commitizen reads the current
+// version as 0.0.0 and rewrites this line to the first real one on bump.
+val appVersionName = "0.0.0"
 val appVersionCode = appVersionName.split(".").let { (major, minor, patch) ->
-    major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt()
+    (major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt())
+        .coerceAtLeast(1) // the 0.0.0 placeholder must still be a legal versionCode
 }
 
 // local.properties is gitignored (see local.properties.example) -- reading
-// it here, not hardcoding a topic or URL into a committed .kt file, is the
-// whole point: whoever holds NTFY_TOPIC can read every alert this app
-// raises, so it goes into BuildConfig the same way it goes into .env
-// elsewhere in this stack.
+// it here, not hardcoding a URL into a committed .kt file, is the point.
+// The ntfy topic is deliberately NOT here: it is a credential, so it is
+// typed into the app on the device (ntfy/TopicStore.kt), never baked into
+// an APK.
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
@@ -73,14 +76,6 @@ android {
         buildConfigField(
             "String", "API_BASE_URL",
             "\"${localProp("apiBaseUrl", "https://www.thomaspeoples.com/api/")}\""
-        )
-        buildConfigField(
-            "String", "NTFY_TOPIC",
-            "\"${localProp("ntfyTopic", "")}\""
-        )
-        buildConfigField(
-            "String", "NTFY_WS_URL",
-            "\"wss://www.thomaspeoples.com/ntfy/${localProp("ntfyTopic", "")}/ws\""
         )
     }
 

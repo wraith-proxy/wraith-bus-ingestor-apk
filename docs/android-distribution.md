@@ -4,29 +4,27 @@ This app is not on the Google Play Store, and this is deliberate, not a
 gap to close later — see [docs/ROADMAP.md § 1.5.0](ROADMAP.md). This page
 covers the three real ways to get it onto a device instead.
 
-## Obtainium (works today, no setup here)
+## Obtainium and direct download
 
-Obtainium tracks a Gitea repository's Releases page directly and offers
-to install/update whatever APK asset matches. Releases live on this
-repo's own Releases page, migrated here from `wraith-bus-ingestor` (the
-platform repo this app was split out of, milestone 1.8.0) with matching
-tags, bodies and APK assets — the three existing `android-X.Y.Z-debug`
-releases were recreated here pointing at the equivalent commits in this
-repo's own history (preserved via the `git subtree split` the whole
-split used), not left behind on the platform repo.
+Releases are cut by CI, not by hand. A merge to `main` runs `release.yml`,
+which `cz bump`s the version, tags `android-X.Y.Z`, builds a signed
+`wraith-bus.apk` and attaches it to a Gitea release. Obtainium tracks that
+Releases page.
 
 - Add the app in Obtainium with the repo URL:
   `https://git.thomaspeoples.com/thomaspeoples/wraith-bus-ingestor-apk`
-- Obtainium needs to be told this is a Gitea host, not GitHub/GitLab, in
-  its "source" picker.
-- Release tags follow `android-X.Y.Z-debug`, one asset each named
-  `wraith-bus-debug.apk` — a consistent, predictable pattern by design,
-  so Obtainium's asset-matching regex only ever needs to match that one
-  filename.
+- Tell it the host is Gitea in its source picker.
+- Anyone can also download `wraith-bus.apk` from the Releases page directly.
 
-Anyone with an Obtainium config still pointed at `wraith-bus-ingestor`
-needs to repoint it at `-apk` manually -- Obtainium has no way to be told
-"this repo moved" from the Gitea side.
+The ntfy topic is a credential (whoever holds it can read the alerts), so it is
+entered in the app under **About > Alerts** and stored on the device. It is not
+a build input and is in no CI secret, which is what makes a public APK safe. The
+APK does point at the production API by default, so anyone who installs it uses
+that server.
+
+The earlier `android-X.Y.Z-debug` releases were deleted on 2026-10-01 because
+those APKs had the topic compiled in. Anyone whose Obtainium config tracked
+them has nothing to follow until the first new release.
 
 ## F-Droid
 
@@ -53,13 +51,12 @@ the self-hosted one, not the public catalog:
 
 ### What's actually ready
 
-- **Reproducible build.** `app/build.gradle.kts` reads
-  `local.properties` for `apiBaseUrl`/`ntfyTopic` and falls back to safe
-  defaults (`apiBaseUrl` to the real production API, `ntfyTopic` to
-  empty) when it is absent -- which is exactly the state F-Droid's build
-  server sees on a fresh checkout. `NtfyForegroundService` never starts
-  when the topic is blank (see `MainActivity.kt`), so a build with no
-  topic degrades to "no push notifications," not a crash.
+- **Reproducible build.** `app/build.gradle.kts` reads `local.properties` for
+  `apiBaseUrl` and falls back to the real production API when it is absent,
+  which is the state F-Droid's build server sees on a fresh checkout. The ntfy
+  topic is not a build input at all: `NtfyForegroundService` never starts until
+  a topic is entered in the app, so a fresh install degrades to "no push
+  notifications", not a crash.
 - **No proprietary dependencies.** MapLibre (BSD), OkHttp and every
   AndroidX library (Apache 2.0), Kotlin coroutines (Apache 2.0) -- fully
   FOSS build, no Google Play Services, no Firebase/FCM. Push
@@ -99,10 +96,7 @@ day it is actually wanted, not preemptively.
 
 ## In-app update notice
 
-`update/UpdateChecker.kt` checks this repo's own Releases page for a
-newer `android-X.Y.Z-debug` tag once per cold start and shows a dialog
-if one exists. This is a courtesy for the third path -- someone who sideloaded
-the APK directly and has neither F-Droid nor Obtainium installed to
-notice a new release on their behalf. It fails silently on any network
-error and never blocks the UI; a missed check is not worth interrupting
-the app over.
+`update/UpdateChecker.kt` checks this repo's Releases page for a newer
+`android-X.Y.Z` tag once per cold start and shows a dialog if one exists. It is
+a courtesy for direct sideloaders who have neither F-Droid nor Obtainium. It
+fails silently on any network error and never blocks the UI.

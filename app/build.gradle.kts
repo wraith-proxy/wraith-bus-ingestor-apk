@@ -17,7 +17,7 @@ import java.util.Properties
 // F-Droid requires.
 // 0.0.0 is a placeholder: there are no tags yet, so commitizen reads the current
 // version as 0.0.0 and rewrites this line to the first real one on bump.
-val appVersionName = "0.0.0"
+val appVersionName = "1.0.0"
 val appVersionCode = appVersionName.split(".").let { (major, minor, patch) ->
     (major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt())
         .coerceAtLeast(1) // the 0.0.0 placeholder must still be a legal versionCode
